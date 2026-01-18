@@ -59,7 +59,6 @@
       color: var(--text);
       outline:none;
     }
-    input::placeholder{color: rgba(255,255,255,.45)}
     select option{color:#111}
 
     form{display:grid; gap:12px; margin-top:12px}
@@ -116,8 +115,16 @@
       font-weight:900; letter-spacing:.4px;
     }
 
+    .check{
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.18);
+    }
+    .check input{width:18px;height:18px}
+
     footer{text-align:center; padding: 16px 12px 22px; color: var(--muted); font-size: 13px}
-    code{background:rgba(255,255,255,.08); padding:2px 6px; border-radius:8px}
   </style>
 </head>
 
@@ -125,30 +132,39 @@
 <header>
   <div class="brand"><span class="dot"></span><span style="font-weight:900">تطوع شباب بلعما</span></div>
   <h1>نموذج تسجيل المحتاجين</h1>
-  <p class="sub">إرسال مباشر بدون عرض Google Form + اعتماد GPS (بالأمتار) مع رفض أي موقع غير دقيق.</p>
+  <p class="sub">إرسال مباشر بدون عرض Google Form + GPS (بالأمتار) مع رفض أي موقع غير دقيق.</p>
 </header>
 
 <div class="wrap">
   <div class="card">
     <h2>تسجيل الدخول</h2>
-    <p class="muted">للمستخدمين المصرّح لهم فقط.</p>
+    <p class="muted">سيتم حفظ بيانات الدخول على جهازك حتى لا تعيد كتابتها.</p>
 
-    <form id="loginForm">
+    <!-- ملاحظة: وجود name + autocomplete يساعد متصفح Chrome على حفظ البيانات (مدير كلمات المرور) -->
+    <form id="loginForm" autocomplete="on">
       <div class="row">
         <div>
           <label>اسم المستخدم *</label>
-          <input id="username" required autocomplete="off" />
+          <input id="username" name="username" required autocomplete="username" inputmode="numeric" />
         </div>
         <div>
           <label>الرمز *</label>
-          <input id="code" required autocomplete="off" />
+          <input id="code" name="password" type="password" required autocomplete="current-password" />
         </div>
       </div>
+
+      <div class="check">
+        <input id="rememberMe" type="checkbox" />
+        <label for="rememberMe" style="margin:0;color:var(--text);font-size:13px">تذكرني على هذا الجهاز</label>
+      </div>
+
       <button class="btn" type="submit">دخول</button>
-<div id="loginErr" class="status err"></div>
+      <button class="btn secondary" type="button" id="clearSaved" style="display:none;">حذف بيانات الدخول المحفوظة</button>
+
+      <div id="loginErr" class="status err"></div>
       <div id="loginOk" class="status ok"></div>
     </form>
-      
+
     <div id="mainFormBox" style="display:none; margin-top:16px;">
       <h2 style="margin-top:0;">البيانات المطلوبة</h2>
       <p class="muted">حدد الموقع أولاً (GPS)، ثم عبّي البيانات واضغط إرسال.</p>
@@ -169,7 +185,7 @@
         </div>
       </div>
 
-      <form id="uiForm">
+      <form id="uiForm" autocomplete="off">
         <div class="row">
           <div>
             <label>الاسم الكامل *</label>
@@ -252,57 +268,78 @@
   تم تطوير الموقع من قبل المهندس فرحان الخوالدة @ تطوع شباب بلعما
 </footer>
 
+<!-- ارسال مخفي بدل fetch (أكثر ثباتاً) -->
+<iframe name="hidden_iframe" style="display:none;"></iframe>
+
 <script>
   const el = (id)=>document.getElementById(id);
 
   /***************
    * Login
-    /***************
- * Login
- ***************/
-const ALLOWED_USERS = new Set([
-  "2100706142",
-  "2100706042",
-  "2100706041",
-  "2100706040",
-  "2100706043",
-  "1"
-]);
+   ***************/
+  const ALLOWED_USERS = new Set([
+    "2100706142","2100706042","2100706041","2100706040","2100706043","1"
+  ]);
+  const ACCESS_CODE = new Set(["Balma2026","1"]);
 
-const ACCESS_CODE = new Set([
-  "Balma2026",
-  "1"
-]);
+  const LS_KEY = "balma_login_v1";
 
-el("loginForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-
-  // إخفاء الرسائل
-  el("loginErr").style.display = "none";
-  el("loginOk").style.display = "none";
-
-  const u = el("username").value.trim();
-  const c = el("code").value.trim();
-
-  // ✅ التحقق الصحيح
-  if (!ALLOWED_USERS.has(u) || !ACCESS_CODE.has(c)) {
-    el("loginErr").className = "status err";
-    el("loginErr").textContent = "بيانات الدخول غير صحيحة.";
-    el("loginErr").style.display = "block";
-    return;
+  function loadSavedLogin(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return;
+      if (typeof data.username === 'string') el('username').value = data.username;
+      if (typeof data.code === 'string') el('code').value = data.code;
+      if (data.remember === true) el('rememberMe').checked = true;
+      el('clearSaved').style.display = 'block';
+    } catch {}
   }
 
-  // ✅ نجاح
-  el("loginOk").className = "status ok";
-  el("loginOk").textContent = "تم تسجيل الدخول ✅";
-  el("loginOk").style.display = "block";
+  function saveLoginIfWanted(username, code){
+    if (!el('rememberMe').checked) return;
+    const data = { username, code, remember: true };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    el('clearSaved').style.display = 'block';
+  }
 
-  el("mainFormBox").style.display = "block";
-  el("loginForm").style.display = "none";
-});
+  function clearSavedLogin(){
+    localStorage.removeItem(LS_KEY);
+    el('clearSaved').style.display = 'none';
+  }
+
+  el('clearSaved').addEventListener('click', clearSavedLogin);
+  loadSavedLogin();
+
+  el("loginForm").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    el("loginErr").style.display = "none";
+    el("loginOk").style.display = "none";
+
+    const u = el("username").value.trim();
+    const c = el("code").value.trim();
+
+    if (!ALLOWED_USERS.has(u) || !ACCESS_CODE.has(c)){
+      el("loginErr").className = "status err";
+      el("loginErr").textContent = "بيانات الدخول غير صحيحة.";
+      el("loginErr").style.display = "block";
+      return;
+    }
+
+    // حفظ حسب اختيار المستخدم
+    saveLoginIfWanted(u, c);
+
+    el("loginOk").className = "status ok";
+    el("loginOk").textContent = "تم تسجيل الدخول ✅";
+    el("loginOk").style.display = "block";
+
+    el("mainFormBox").style.display = "block";
+    el("loginForm").style.display = "none";
+  });
 
   /***************
-   * Google Forms direct submit (no form shown)
+   * Google Forms direct submit (hidden form)
    ***************/
   const FORM = {
     postUrl: "https://docs.google.com/forms/d/e/1FAIpQLScmunibxC5Y8BVkzjmFG8j9ussitf9f_ANxCwHlVUaogcW6Ig/formResponse",
@@ -318,6 +355,31 @@ el("loginForm").addEventListener("submit", (e) => {
       location: "entry.931262605"
     }
   };
+
+  function submitToGoogleForms(payload){
+    // هذه الحقول تساعد Google Forms على قبول الإرسال
+    payload["fvv"] = "1";
+    payload["draftResponse"] = "[]";
+    payload["pageHistory"] = "0";
+    payload["fbzx"] = String(Date.now());
+
+    const form = document.createElement("form");
+    form.action = FORM.postUrl;
+    form.method = "POST";
+    form.target = "hidden_iframe";
+
+    Object.entries(payload).forEach(([k,v])=>{
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = k;
+      input.value = v;
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+  }
 
   /***************
    * Family size options
@@ -392,6 +454,7 @@ el("loginForm").addEventListener("submit", (e) => {
       el("scoreText").textContent = "—";
       return;
     }
+
     const score = incomePoints(income) + familyPoints(family) + housingPoints(housing) + specialPoints(special, cases);
     el("scoreText").textContent = String(score);
     el("classBadge").textContent = toClass(score);
@@ -405,7 +468,7 @@ el("loginForm").addEventListener("submit", (e) => {
   /***************
    * GPS STRICT (meters) — refuse bad accuracy
    ***************/
-  const REQUIRED_ACCURACY_M = 30; // ✅ الدقة المطلوبة بالأمتار (غيّرها 20/50 حسب رغبتك)
+  const REQUIRED_ACCURACY_M = 30; // غيّرها إذا بدك أشد
   const MAX_TRIES = 8;
   const WAIT_MS = 1200;
 
@@ -468,12 +531,11 @@ el("loginForm").addEventListener("submit", (e) => {
       return;
     }
 
-    // رفض الموقع إذا الدقة سيئة
     el("locPill").textContent = `الدقة ضعيفة (±${Math.round(best.accuracy)}م). فعّل High Accuracy وحاول.`;
     el("submitErr").className = "status err";
     el("submitErr").textContent =
-      `الموقع غير مقبول لأنه غير دقيق.\nالدقة الحالية: ±${Math.round(best.accuracy)} متر.\n`
-      + `الرجاء تشغيل GPS وHigh Accuracy ثم إعادة المحاولة.`;
+      `الموقع غير مقبول لأنه غير دقيق.\nالدقة الحالية: ±${Math.round(best.accuracy)} متر.\n`+
+      `شغّل GPS وHigh Accuracy ثم أعد المحاولة.`;
     el("submitErr").style.display = "block";
   }
 
@@ -482,17 +544,7 @@ el("loginForm").addEventListener("submit", (e) => {
   /***************
    * Submit
    ***************/
-  async function submitToGoogleForms(payload){
-    const body = new URLSearchParams(payload);
-    await fetch(FORM.postUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body
-    });
-  }
-
-  el("uiForm").addEventListener("submit", async (e)=>{
+  el("uiForm").addEventListener("submit", (e)=>{
     e.preventDefault();
     el("submitOk").style.display = "none";
     el("submitErr").style.display = "none";
@@ -520,7 +572,6 @@ el("loginForm").addEventListener("submit", (e) => {
       return;
     }
 
-    // لازم GPS مقبول
     if (!currentMapsLink || currentAccuracy === null){
       el("submitErr").className = "status err";
       el("submitErr").textContent = "لازم تحدد الموقع أولاً (GPS).";
@@ -550,24 +601,21 @@ el("loginForm").addEventListener("submit", (e) => {
     payload[FORM.entry.special] = special;
     payload[FORM.entry.cases] = cases;
     payload[FORM.entry.housing] = housing;
-    payload[FORM.entry.classif] = classification; // A-G
+    payload[FORM.entry.classif] = classification;
     payload[FORM.entry.location] = currentMapsLink;
 
-    try{
-      el("submitOk").className = "status ok";
-      el("submitOk").textContent = "جاري الإرسال...";
-      el("submitOk").style.display = "block";
+    // إرسال
+    submitToGoogleForms(payload);
 
-      await submitToGoogleForms(payload);
+    el("submitOk").className = "status ok";
+    el("submitOk").textContent = `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | دقة: ±${Math.round(currentAccuracy)}م)`;
+    el("submitOk").style.display = "block";
 
-      el("submitOk").className = "status ok";
-      el("submitOk").textContent = `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | دقة: ±${Math.round(currentAccuracy)}م)`;
-    }catch(err){
-      el("submitErr").className = "status err";
-      el("submitErr").textContent = "صار خطأ أثناء الإرسال.";
-      el("submitErr").style.display = "block";
-    }
+    // اختياري: تفريغ النموذج بعد الإرسال
+    // el("uiForm").reset();
+    // recalc();
   });
 </script>
+
 </body>
 </html>
