@@ -132,7 +132,7 @@
 <header>
   <div class="brand"><span class="dot"></span><span style="font-weight:900">تطوع شباب بلعما</span></div>
   <h1>نموذج تسجيل المحتاجين</h1>
-  <p class="sub">إرسال مباشر بدون عرض Google Form + GPS (بالأمتار) مع رفض أي موقع غير دقيق.</p>
+  <p class="sub">إرسال مباشر بدون عرض Google Form + GPS (بالأمتار) مع رفض أي موقع غير دقيق (إلا إذا أدخلته يدويًا).</p>
 </header>
 
 <div class="wrap">
@@ -166,7 +166,7 @@
 
     <div id="mainFormBox" style="display:none; margin-top:16px;">
       <h2 style="margin-top:0;">البيانات المطلوبة</h2>
-      <p class="muted">حدد الموقع أولاً (GPS)، ثم عبّي البيانات واضغط إرسال.</p>
+      <p class="muted">حدد الموقع (GPS) أو أدخل رابط الموقع يدويًا، ثم عبّي البيانات واضغط إرسال.</p>
 
       <div class="inline">
         <button class="btn secondary" type="button" id="locBtn">تحديد موقعي (GPS)</button>
@@ -175,13 +175,25 @@
 
       <div class="kpi">
         <div class="box">
-          <p class="t">دقّة الموقع (متر)</p>
+          <p class="t">دقّة الموقع</p>
           <p class="v" id="accText">—</p>
         </div>
         <div class="box">
           <p class="t">رابط الموقع</p>
           <p class="v" style="font-size:12px; font-weight:700; word-break:break-all" id="mapsLinkText">—</p>
         </div>
+      </div>
+
+      <!-- إدخال يدوي لرابط الموقع -->
+      <div style="margin-top:12px;">
+        <label>أو أدخل رابط الموقع يدويًا (Google Maps) *</label>
+        <div class="row">
+          <input id="manualLoc" placeholder="مثال: https://maps.google.com/?q=31.95,35.93" />
+          <button class="btn secondary" type="button" id="useManualLoc">استخدام الرابط</button>
+        </div>
+        <p class="muted" style="margin-top:8px;">
+          انسخ الرابط من Google Maps (مشاركة → نسخ الرابط) أو رابط بالشكل ?q=lat,lng
+        </p>
       </div>
 
       <form id="uiForm" autocomplete="off">
@@ -334,7 +346,7 @@
   });
 
   /***************
-   * Google Forms direct submit (confirmed)
+   * Google Forms direct submit (FIX: never open the form page)
    ***************/
   const FORM = {
     postUrl: "https://docs.google.com/forms/d/e/1FAIpQLScmunibxC5Y8BVkzjmFG8j9ussitf9f_ANxCwHlVUaogcW6Ig/formResponse",
@@ -355,7 +367,7 @@
     return btoa(unescape(encodeURIComponent(JSON.stringify(p))));
   }
 
-  // Queue (حتى لو النت قوي: لو حصل فشل تأكيد لأي سبب)
+  // Pending queue
   const PENDING_KEY = "balma_pending_v1";
   function loadPending(){
     try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); }
@@ -367,29 +379,41 @@
   function addPending(payload){
     const fp = payloadFingerprint(payload);
     const arr = loadPending();
-    if (arr.some(x => x && x.fp === fp)) return; // منع تكرار نفس الطلب
+    if (arr.some(x => x && x.fp === fp)) return;
     arr.push({ fp, payload, at: Date.now(), tries: 0 });
     savePending(arr);
   }
 
+  // iframe ثابت (الأوثق لمنع فتح الفورم)
+  const POST_IFRAME_NAME = "hidden_iframe_post";
+  function ensurePostIframe(){
+    let iframe = document.querySelector(`iframe[name="${POST_IFRAME_NAME}"]`);
+    if (!iframe){
+      iframe = document.createElement("iframe");
+      iframe.name = POST_IFRAME_NAME;
+      iframe.id = POST_IFRAME_NAME;
+      iframe.style.display = "none";
+      iframe.src = "about:blank";
+      document.body.appendChild(iframe);
+    }
+    return iframe;
+  }
+
   function submitToGoogleForms(payload, timeoutMs = 12000){
     return new Promise((resolve, reject)=>{
-      // حقول مساعدة لـ Google Forms
+      const iframe = ensurePostIframe();
+
       payload["fvv"] = "1";
       payload["draftResponse"] = "[]";
       payload["pageHistory"] = "0";
       payload["fbzx"] = String(Date.now());
 
-      // iframe جديد لكل إرسال (أوثق)
-      const iframeName = "hidden_iframe_" + Date.now();
-      const iframe = document.createElement("iframe");
-      iframe.name = iframeName;
-      iframe.style.display = "none";
-
       const form = document.createElement("form");
       form.action = FORM.postUrl;
       form.method = "POST";
-      form.target = iframeName;
+      form.target = POST_IFRAME_NAME;
+      form.acceptCharset = "UTF-8";
+      form.style.display = "none";
 
       Object.entries(payload).forEach(([k,v])=>{
         const input = document.createElement("input");
@@ -409,20 +433,19 @@
 
       function cleanup(){
         clearTimeout(timer);
-        iframe.onload = null;
+        iframe.removeEventListener("load", onLoad);
         try{ form.remove(); } catch {}
-        try{ iframe.remove(); } catch {}
       }
 
-      // ملاحظة: iframe.onload = أقرب شيء لتأكيد وصول الرد
-      iframe.onload = ()=>{
+      function onLoad(){
         if (done) return;
         done = true;
         cleanup();
         resolve(true);
-      };
+      }
 
-      document.body.appendChild(iframe);
+      iframe.addEventListener("load", onLoad);
+
       document.body.appendChild(form);
 
       try{
@@ -447,15 +470,12 @@
         item.tries = (item.tries || 0) + 1;
         await submitToGoogleForms(item.payload, 12000);
       } catch {
-        // إذا فشل، خليه معلّق
         remaining.push(item);
       }
     }
     savePending(remaining);
   }
-
   window.addEventListener("online", flushPending);
-  // جرّب تفريغ المعلّق كل دقيقة (يساعد حتى لو onload/online ما اشتغلوا)
   setInterval(flushPending, 60000);
 
   /***************
@@ -543,16 +563,18 @@
   function validatePhone(phone){ return /^07\d{8}$/.test((phone||"").trim()); }
 
   /***************
-   * GPS STRICT (meters) — refuse bad accuracy
+   * GPS STRICT + Manual Location
    ***************/
-  const REQUIRED_ACCURACY_M = 30; // غيّرها إذا بدك أشد
+  const REQUIRED_ACCURACY_M = 30;
   const MAX_TRIES = 8;
   const WAIT_MS = 1200;
 
   let currentMapsLink = null;
   let currentAccuracy = null;
+  let manualLocationUsed = false;
 
   function setGps(lat, lng, accuracy){
+    manualLocationUsed = false;        // إذا استخدم GPS، يلغي اليدوي
     currentAccuracy = accuracy;
     currentMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
     el("accText").textContent = `${Math.round(accuracy)} م`;
@@ -574,6 +596,7 @@
     el("mapsLinkText").textContent = "—";
     currentMapsLink = null;
     currentAccuracy = null;
+    manualLocationUsed = false;
 
     let best = null;
 
@@ -589,7 +612,6 @@
       if (pos){
         const { latitude, longitude, accuracy } = pos.coords;
         const cand = { latitude, longitude, accuracy };
-
         if (!best || cand.accuracy < best.accuracy) best = cand;
 
         el("accText").textContent = `${Math.round(cand.accuracy)} م (محاولة ${i}/${MAX_TRIES})`;
@@ -599,7 +621,6 @@
           return;
         }
       }
-
       await new Promise(r=>setTimeout(r, WAIT_MS));
     }
 
@@ -615,8 +636,37 @@
       `شغّل GPS وHigh Accuracy ثم أعد المحاولة.`;
     el("submitErr").style.display = "block";
   }
-
   el("locBtn").addEventListener("click", getStrictGps);
+
+  function isValidMapsLink(url){
+    try{
+      const u = new URL(url);
+      const hostOk = u.hostname.includes("google.") || u.hostname.includes("goo.gl");
+      const looksLikeMaps =
+        url.includes("maps") || url.includes("?q=") || url.includes("/place/") || url.includes("/@");
+      return hostOk && looksLikeMaps;
+    } catch { return false; }
+  }
+
+  el("useManualLoc").addEventListener("click", ()=>{
+    el("submitErr").style.display = "none";
+    el("submitOk").style.display = "none";
+
+    const link = el("manualLoc").value.trim();
+    if (!isValidMapsLink(link)){
+      el("submitErr").className = "status err";
+      el("submitErr").textContent = "رابط الموقع غير صحيح. انسخه من Google Maps (مشاركة → نسخ الرابط).";
+      el("submitErr").style.display = "block";
+      return;
+    }
+
+    manualLocationUsed = true;
+    currentMapsLink = link;
+    currentAccuracy = 0; // لأنه يدوي
+    el("accText").textContent = "يدوي";
+    el("mapsLinkText").textContent = currentMapsLink;
+    el("locPill").textContent = "تم إدخال الموقع يدويًا ✅";
+  });
 
   /***************
    * Submit (CONFIRMED)
@@ -649,13 +699,16 @@
       return;
     }
 
-    if (!currentMapsLink || currentAccuracy === null){
+    // لازم يكون فيه موقع (GPS أو يدوي)
+    if (!currentMapsLink){
       el("submitErr").className = "status err";
-      el("submitErr").textContent = "لازم تحدد الموقع أولاً (GPS).";
+      el("submitErr").textContent = "لازم تحدد الموقع (GPS) أو تدخل رابط الموقع يدويًا.";
       el("submitErr").style.display = "block";
       return;
     }
-    if (currentAccuracy > REQUIRED_ACCURACY_M){
+
+    // إذا مش يدوي، طبّق شرط الدقة
+    if (!manualLocationUsed && currentAccuracy !== null && currentAccuracy > REQUIRED_ACCURACY_M){
       el("submitErr").className = "status err";
       el("submitErr").textContent = `الدقة الحالية ±${Math.round(currentAccuracy)}م (مرفوضة). اضغط تحديد موقعي وحاول.`;
       el("submitErr").style.display = "block";
@@ -687,18 +740,16 @@
     btn.textContent = "جاري الإرسال...";
 
     try{
-      // حتى لو النت قوي: لو ما صار onload خلال المهلة، نعتبره غير مؤكد ونخزّنه Pending
       await submitToGoogleForms(payload, 12000);
 
       el("submitOk").className = "status ok";
-      el("submitOk").textContent = `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | دقة: ±${Math.round(currentAccuracy)}م)`;
+      el("submitOk").textContent =
+        `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | الموقع: ${manualLocationUsed ? "يدوي" : "GPS"})`;
       el("submitOk").style.display = "block";
 
-      // بعد نجاح إرسال واحد، حاول يرسل أي Pending
       flushPending();
     } catch (err){
       addPending(payload);
-
       el("submitErr").className = "status err";
       el("submitErr").textContent =
         "لم يتم تأكيد وصول البيانات (قد يكون منع/تأخير من Google أو المتصفح).\n" +
