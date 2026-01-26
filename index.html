@@ -132,7 +132,7 @@
 <header>
   <div class="brand"><span class="dot"></span><span style="font-weight:900">تطوع شباب بلعما</span></div>
   <h1>نموذج تسجيل المحتاجين</h1>
-  <p class="sub">إرسال مباشر بدون عرض Google Form + GPS (بالأمتار) مع رفض أي موقع غير دقيق (إلا إذا أدخلته يدويًا).</p>
+  <p class="sub">إرسال مباشر عبر Google Apps Script (بدون فتح Google Form) + GPS أو رابط يدوي.</p>
 </header>
 
 <div class="wrap">
@@ -184,16 +184,12 @@
         </div>
       </div>
 
-      <!-- إدخال يدوي لرابط الموقع -->
       <div style="margin-top:12px;">
         <label>أو أدخل رابط الموقع يدويًا (Google Maps) *</label>
         <div class="row">
           <input id="manualLoc" placeholder="مثال: https://maps.google.com/?q=31.95,35.93" />
           <button class="btn secondary" type="button" id="useManualLoc">استخدام الرابط</button>
         </div>
-        <p class="muted" style="margin-top:8px;">
-          انسخ الرابط من Google Maps (مشاركة → نسخ الرابط) أو رابط بالشكل ?q=lat,lng
-        </p>
       </div>
 
       <form id="uiForm" autocomplete="off">
@@ -304,14 +300,11 @@
       el('clearSaved').style.display = 'block';
     } catch {}
   }
-
   function saveLoginIfWanted(username, code){
     if (!el('rememberMe').checked) return;
-    const data = { username, code, remember: true };
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    localStorage.setItem(LS_KEY, JSON.stringify({ username, code, remember:true }));
     el('clearSaved').style.display = 'block';
   }
-
   function clearSavedLogin(){
     localStorage.removeItem(LS_KEY);
     el('clearSaved').style.display = 'none';
@@ -346,29 +339,18 @@
   });
 
   /***************
-   * Google Forms direct submit (FIX: never open the form page)
+   * Apps Script endpoint
    ***************/
-  const FORM = {
-    postUrl: "https://docs.google.com/forms/d/e/1FAIpQLScmunibxC5Y8BVkzjmFG8j9ussitf9f_ANxCwHlVUaogcW6Ig/formResponse",
-    entry: {
-      name: "entry.1683177533",
-      family: "entry.349430843",
-      phone: "entry.700693410",
-      income: "entry.600458202",
-      special: "entry.12643569",
-      cases: "entry.396134318",
-      housing: "entry.333339091",
-      classif: "entry.389169403",
-      location: "entry.931262605"
-    }
-  };
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxa3ZVHURr6tGLZEICP10YNk6HqAepfH-Ak_akTnbsuSA4wnMg1psrypJNe1yFgfcwN/exec";
 
-  function payloadFingerprint(p){
-    return btoa(unescape(encodeURIComponent(JSON.stringify(p))));
+  /***************
+   * Pending Queue
+   ***************/
+  function fingerprint(obj){
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
   }
+  const PENDING_KEY = "balma_pending_v3";
 
-  // Pending queue
-  const PENDING_KEY = "balma_pending_v1";
   function loadPending(){
     try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); }
     catch { return []; }
@@ -377,86 +359,42 @@
     localStorage.setItem(PENDING_KEY, JSON.stringify(arr));
   }
   function addPending(payload){
-    const fp = payloadFingerprint(payload);
+    const fp = fingerprint(payload);
     const arr = loadPending();
     if (arr.some(x => x && x.fp === fp)) return;
     arr.push({ fp, payload, at: Date.now(), tries: 0 });
     savePending(arr);
   }
 
-  // iframe ثابت (الأوثق لمنع فتح الفورم)
-  const POST_IFRAME_NAME = "hidden_iframe_post";
-  function ensurePostIframe(){
-    let iframe = document.querySelector(`iframe[name="${POST_IFRAME_NAME}"]`);
-    if (!iframe){
-      iframe = document.createElement("iframe");
-      iframe.name = POST_IFRAME_NAME;
-      iframe.id = POST_IFRAME_NAME;
-      iframe.style.display = "none";
-      iframe.src = "about:blank";
-      document.body.appendChild(iframe);
-    }
-    return iframe;
-  }
+  async function submitViaScript(payload, timeoutMs = 15000){
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), timeoutMs);
 
-  function submitToGoogleForms(payload, timeoutMs = 12000){
-    return new Promise((resolve, reject)=>{
-      const iframe = ensurePostIframe();
-
-      payload["fvv"] = "1";
-      payload["draftResponse"] = "[]";
-      payload["pageHistory"] = "0";
-      payload["fbzx"] = String(Date.now());
-
-      const form = document.createElement("form");
-      form.action = FORM.postUrl;
-      form.method = "POST";
-      form.target = POST_IFRAME_NAME;
-      form.acceptCharset = "UTF-8";
-      form.style.display = "none";
-
+    try{
+      // form-urlencoded (أوثق مع Apps Script على iPhone/Safari/GitHub Pages)
+      const body = new URLSearchParams();
       Object.entries(payload).forEach(([k,v])=>{
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = k;
-        input.value = v;
-        form.appendChild(input);
+        body.append(k, v === null || v === undefined ? "" : String(v));
       });
 
-      let done = false;
-      const timer = setTimeout(()=>{
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error("timeout"));
-      }, timeoutMs);
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString(),
+        signal: controller.signal
+      });
 
-      function cleanup(){
-        clearTimeout(timer);
-        iframe.removeEventListener("load", onLoad);
-        try{ form.remove(); } catch {}
-      }
+      const text = await res.text();
+      let out = null;
+      try { out = JSON.parse(text); } catch {}
 
-      function onLoad(){
-        if (done) return;
-        done = true;
-        cleanup();
-        resolve(true);
-      }
+      if (!res.ok) throw new Error("HTTP " + res.status + " :: " + text);
+      if (!out || out.ok !== true) throw new Error("Bad response :: " + text);
 
-      iframe.addEventListener("load", onLoad);
-
-      document.body.appendChild(form);
-
-      try{
-        form.submit();
-      } catch (e){
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(e);
-      }
-    });
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function flushPending(){
@@ -468,18 +406,19 @@
     for (const item of arr){
       try{
         item.tries = (item.tries || 0) + 1;
-        await submitToGoogleForms(item.payload, 12000);
+        await submitViaScript(item.payload, 15000);
       } catch {
         remaining.push(item);
       }
     }
     savePending(remaining);
   }
+
   window.addEventListener("online", flushPending);
   setInterval(flushPending, 60000);
 
   /***************
-   * Family size options
+   * Form options
    ***************/
   const familySelect = el("familySize");
   for (let i=1;i<=20;i++){
@@ -537,7 +476,6 @@
     if (score >= 2)  return "F";
     return "G";
   }
-
   function recalc(){
     const income = el("income").value;
     const family = el("familySize").value;
@@ -551,7 +489,6 @@
       el("scoreText").textContent = "—";
       return;
     }
-
     const score = incomePoints(income) + familyPoints(family) + housingPoints(housing) + specialPoints(special, cases);
     el("scoreText").textContent = String(score);
     el("classBadge").textContent = toClass(score);
@@ -563,7 +500,7 @@
   function validatePhone(phone){ return /^07\d{8}$/.test((phone||"").trim()); }
 
   /***************
-   * GPS STRICT + Manual Location
+   * Location (GPS strict + manual link)
    ***************/
   const REQUIRED_ACCURACY_M = 30;
   const MAX_TRIES = 8;
@@ -574,7 +511,7 @@
   let manualLocationUsed = false;
 
   function setGps(lat, lng, accuracy){
-    manualLocationUsed = false;        // إذا استخدم GPS، يلغي اليدوي
+    manualLocationUsed = false;
     currentAccuracy = accuracy;
     currentMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
     el("accText").textContent = `${Math.round(accuracy)} م`;
@@ -632,8 +569,7 @@
     el("locPill").textContent = `الدقة ضعيفة (±${Math.round(best.accuracy)}م). فعّل High Accuracy وحاول.`;
     el("submitErr").className = "status err";
     el("submitErr").textContent =
-      `الموقع غير مقبول لأنه غير دقيق.\nالدقة الحالية: ±${Math.round(best.accuracy)} متر.\n`+
-      `شغّل GPS وHigh Accuracy ثم أعد المحاولة.`;
+      `الموقع غير مقبول لأنه غير دقيق.\nالدقة الحالية: ±${Math.round(best.accuracy)} متر.\nشغّل GPS وHigh Accuracy ثم أعد المحاولة.`;
     el("submitErr").style.display = "block";
   }
   el("locBtn").addEventListener("click", getStrictGps);
@@ -662,14 +598,15 @@
 
     manualLocationUsed = true;
     currentMapsLink = link;
-    currentAccuracy = 0; // لأنه يدوي
+    currentAccuracy = null;
+
     el("accText").textContent = "يدوي";
     el("mapsLinkText").textContent = currentMapsLink;
     el("locPill").textContent = "تم إدخال الموقع يدويًا ✅";
   });
 
   /***************
-   * Submit (CONFIRMED)
+   * Submit
    ***************/
   el("uiForm").addEventListener("submit", async (e)=>{
     e.preventDefault();
@@ -698,16 +635,12 @@
       el("submitErr").style.display = "block";
       return;
     }
-
-    // لازم يكون فيه موقع (GPS أو يدوي)
     if (!currentMapsLink){
       el("submitErr").className = "status err";
       el("submitErr").textContent = "لازم تحدد الموقع (GPS) أو تدخل رابط الموقع يدويًا.";
       el("submitErr").style.display = "block";
       return;
     }
-
-    // إذا مش يدوي، طبّق شرط الدقة
     if (!manualLocationUsed && currentAccuracy !== null && currentAccuracy > REQUIRED_ACCURACY_M){
       el("submitErr").className = "status err";
       el("submitErr").textContent = `الدقة الحالية ±${Math.round(currentAccuracy)}م (مرفوضة). اضغط تحديد موقعي وحاول.`;
@@ -723,16 +656,20 @@
 
     const classification = toClass(score);
 
-    const payload = {};
-    payload[FORM.entry.name] = fullName;
-    payload[FORM.entry.family] = familySize;
-    payload[FORM.entry.phone] = phone;
-    payload[FORM.entry.income] = income;
-    payload[FORM.entry.special] = special;
-    payload[FORM.entry.cases] = cases;
-    payload[FORM.entry.housing] = housing;
-    payload[FORM.entry.classif] = classification;
-    payload[FORM.entry.location] = currentMapsLink;
+    const payload = {
+      fullName,
+      familySize,
+      phone,
+      income,
+      special,
+      cases,
+      housing,
+      classification,
+      location: currentMapsLink,
+      locationMode: manualLocationUsed ? "manual" : "gps",
+      accuracy: manualLocationUsed ? "" : String(Math.round(currentAccuracy || 0)),
+      submittedAt: new Date().toISOString()
+    };
 
     const btn = el("submitBtn");
     btn.disabled = true;
@@ -740,20 +677,22 @@
     btn.textContent = "جاري الإرسال...";
 
     try{
-      await submitToGoogleForms(payload, 12000);
+      await submitViaScript(payload, 15000);
 
       el("submitOk").className = "status ok";
       el("submitOk").textContent =
-        `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | الموقع: ${manualLocationUsed ? "يدوي" : "GPS"})`;
+        `تم الحفظ ✅\nالتصنيف: ${classification} | نقاط: ${score}\nالموقع: ${manualLocationUsed ? "يدوي" : ("GPS ±" + Math.round(currentAccuracy) + "م")}`;
       el("submitOk").style.display = "block";
 
       flushPending();
     } catch (err){
       addPending(payload);
+
       el("submitErr").className = "status err";
       el("submitErr").textContent =
-        "لم يتم تأكيد وصول البيانات (قد يكون منع/تأخير من Google أو المتصفح).\n" +
-        "تم حفظ الطلب وسيتم إعادة المحاولة تلقائياً.";
+        "تعذّر تأكيد الحفظ الآن.\n" +
+        "السبب: " + (err && err.message ? err.message : String(err)) + "\n" +
+        "تم حفظ الطلب على الجهاز وسيتم إعادة المحاولة تلقائيًا.";
       el("submitErr").style.display = "block";
 
       flushPending();
@@ -763,7 +702,7 @@
     }
   });
 
-  // أول ما تفتح الصفحة حاول إرسال أي Pending موجود
+  // أول ما تفتح الصفحة حاول إرسال أي pending
   flushPending();
 </script>
 
