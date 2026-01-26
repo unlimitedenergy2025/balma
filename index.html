@@ -132,7 +132,7 @@
 <header>
   <div class="brand"><span class="dot"></span><span style="font-weight:900">تطوع شباب بلعما</span></div>
   <h1>نموذج تسجيل المحتاجين</h1>
-  <p class="sub">.</p>
+  <p class="sub">إرسال مباشر بدون عرض Google Form + GPS (بالأمتار) مع رفض أي موقع غير دقيق.</p>
 </header>
 
 <div class="wrap">
@@ -140,7 +140,6 @@
     <h2>تسجيل الدخول</h2>
     <p class="muted">سيتم حفظ بيانات الدخول على جهازك حتى لا تعيد كتابتها.</p>
 
-    <!-- ملاحظة: وجود name + autocomplete يساعد متصفح Chrome على حفظ البيانات (مدير كلمات المرور) -->
     <form id="loginForm" autocomplete="on">
       <div class="row">
         <div>
@@ -202,7 +201,7 @@
         <div class="row">
           <div>
             <label>رقم الهاتف *</label>
-            <input id="phone" required inputmode="numeric" />
+            <input id="phone" required type="tel" inputmode="numeric" autocomplete="tel" />
           </div>
           <div>
             <label>دخل الأسرة تقريبًا؟ *</label>
@@ -256,7 +255,7 @@
           </div>
         </div>
 
-        <button class="btn" type="submit">إرسال</button>
+        <button class="btn" type="submit" id="submitBtn">إرسال</button>
         <div id="submitOk" class="status ok"></div>
         <div id="submitErr" class="status err"></div>
       </form>
@@ -268,9 +267,6 @@
   تم تطوير الموقع من قبل المهندس فرحان الخوالدة @ تطوع شباب بلعما
 </footer>
 
-<!-- ارسال مخفي بدل fetch (أكثر ثباتاً) -->
-<iframe name="hidden_iframe" style="display:none;"></iframe>
-
 <script>
   const el = (id)=>document.getElementById(id);
 
@@ -278,7 +274,7 @@
    * Login
    ***************/
   const ALLOWED_USERS = new Set([
-    "2100706142","2100706042","2150502071","2100706040","2100706043","1"
+    "2100706142","2100706042","2100706041","2100706040","2100706043","1"
   ]);
   const ACCESS_CODE = new Set(["Balma2026","1"]);
 
@@ -327,7 +323,6 @@
       return;
     }
 
-    // حفظ حسب اختيار المستخدم
     saveLoginIfWanted(u, c);
 
     el("loginOk").className = "status ok";
@@ -339,7 +334,7 @@
   });
 
   /***************
-   * Google Forms direct submit (hidden form)
+   * Google Forms direct submit (confirmed)
    ***************/
   const FORM = {
     postUrl: "https://docs.google.com/forms/d/e/1FAIpQLScmunibxC5Y8BVkzjmFG8j9ussitf9f_ANxCwHlVUaogcW6Ig/formResponse",
@@ -356,30 +351,112 @@
     }
   };
 
-  function submitToGoogleForms(payload){
-    // هذه الحقول تساعد Google Forms على قبول الإرسال
-    payload["fvv"] = "1";
-    payload["draftResponse"] = "[]";
-    payload["pageHistory"] = "0";
-    payload["fbzx"] = String(Date.now());
-
-    const form = document.createElement("form");
-    form.action = FORM.postUrl;
-    form.method = "POST";
-    form.target = "hidden_iframe";
-
-    Object.entries(payload).forEach(([k,v])=>{
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = k;
-      input.value = v;
-      form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-    form.submit();
-    form.remove();
+  function payloadFingerprint(p){
+    return btoa(unescape(encodeURIComponent(JSON.stringify(p))));
   }
+
+  // Queue (حتى لو النت قوي: لو حصل فشل تأكيد لأي سبب)
+  const PENDING_KEY = "balma_pending_v1";
+  function loadPending(){
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); }
+    catch { return []; }
+  }
+  function savePending(arr){
+    localStorage.setItem(PENDING_KEY, JSON.stringify(arr));
+  }
+  function addPending(payload){
+    const fp = payloadFingerprint(payload);
+    const arr = loadPending();
+    if (arr.some(x => x && x.fp === fp)) return; // منع تكرار نفس الطلب
+    arr.push({ fp, payload, at: Date.now(), tries: 0 });
+    savePending(arr);
+  }
+
+  function submitToGoogleForms(payload, timeoutMs = 12000){
+    return new Promise((resolve, reject)=>{
+      // حقول مساعدة لـ Google Forms
+      payload["fvv"] = "1";
+      payload["draftResponse"] = "[]";
+      payload["pageHistory"] = "0";
+      payload["fbzx"] = String(Date.now());
+
+      // iframe جديد لكل إرسال (أوثق)
+      const iframeName = "hidden_iframe_" + Date.now();
+      const iframe = document.createElement("iframe");
+      iframe.name = iframeName;
+      iframe.style.display = "none";
+
+      const form = document.createElement("form");
+      form.action = FORM.postUrl;
+      form.method = "POST";
+      form.target = iframeName;
+
+      Object.entries(payload).forEach(([k,v])=>{
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = k;
+        input.value = v;
+        form.appendChild(input);
+      });
+
+      let done = false;
+      const timer = setTimeout(()=>{
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error("timeout"));
+      }, timeoutMs);
+
+      function cleanup(){
+        clearTimeout(timer);
+        iframe.onload = null;
+        try{ form.remove(); } catch {}
+        try{ iframe.remove(); } catch {}
+      }
+
+      // ملاحظة: iframe.onload = أقرب شيء لتأكيد وصول الرد
+      iframe.onload = ()=>{
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(true);
+      };
+
+      document.body.appendChild(iframe);
+      document.body.appendChild(form);
+
+      try{
+        form.submit();
+      } catch (e){
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(e);
+      }
+    });
+  }
+
+  async function flushPending(){
+    if (!navigator.onLine) return;
+    const arr = loadPending();
+    if (!arr.length) return;
+
+    const remaining = [];
+    for (const item of arr){
+      try{
+        item.tries = (item.tries || 0) + 1;
+        await submitToGoogleForms(item.payload, 12000);
+      } catch {
+        // إذا فشل، خليه معلّق
+        remaining.push(item);
+      }
+    }
+    savePending(remaining);
+  }
+
+  window.addEventListener("online", flushPending);
+  // جرّب تفريغ المعلّق كل دقيقة (يساعد حتى لو onload/online ما اشتغلوا)
+  setInterval(flushPending, 60000);
 
   /***************
    * Family size options
@@ -542,9 +619,9 @@
   el("locBtn").addEventListener("click", getStrictGps);
 
   /***************
-   * Submit
+   * Submit (CONFIRMED)
    ***************/
-  el("uiForm").addEventListener("submit", (e)=>{
+  el("uiForm").addEventListener("submit", async (e)=>{
     e.preventDefault();
     el("submitOk").style.display = "none";
     el("submitErr").style.display = "none";
@@ -604,19 +681,40 @@
     payload[FORM.entry.classif] = classification;
     payload[FORM.entry.location] = currentMapsLink;
 
-    // إرسال
-    submitToGoogleForms(payload);
+    const btn = el("submitBtn");
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = "جاري الإرسال...";
 
-    el("submitOk").className = "status ok";
-    el("submitOk").textContent = `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | دقة: ±${Math.round(currentAccuracy)}م)`;
-    el("submitOk").style.display = "block";
+    try{
+      // حتى لو النت قوي: لو ما صار onload خلال المهلة، نعتبره غير مؤكد ونخزّنه Pending
+      await submitToGoogleForms(payload, 12000);
 
-    // اختياري: تفريغ النموذج بعد الإرسال
-    // el("uiForm").reset();
-    // recalc();
+      el("submitOk").className = "status ok";
+      el("submitOk").textContent = `تم الإرسال ✅ (التصنيف: ${classification} | نقاط: ${score} | دقة: ±${Math.round(currentAccuracy)}م)`;
+      el("submitOk").style.display = "block";
+
+      // بعد نجاح إرسال واحد، حاول يرسل أي Pending
+      flushPending();
+    } catch (err){
+      addPending(payload);
+
+      el("submitErr").className = "status err";
+      el("submitErr").textContent =
+        "لم يتم تأكيد وصول البيانات (قد يكون منع/تأخير من Google أو المتصفح).\n" +
+        "تم حفظ الطلب وسيتم إعادة المحاولة تلقائياً.";
+      el("submitErr").style.display = "block";
+
+      flushPending();
+    } finally{
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
   });
+
+  // أول ما تفتح الصفحة حاول إرسال أي Pending موجود
+  flushPending();
 </script>
 
 </body>
 </html>
-
