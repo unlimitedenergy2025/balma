@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>الرئيسية | shababJO</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235DE2FF'/%3E%3Cstop offset='1' stop-color='%23A78BFA'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Ctext x='32' y='41' font-size='26' text-anchor='middle' font-family='Arial' fill='white'%3ESJ%3C/text%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#0A1224" />
+  
+
+  
+  
+
+  <link rel="stylesheet" href="assets/app.css" />
+  <script src="assets/auth.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+
+<body>
+  <script>
+    // Protect this page
+    shababJO.requireAuth();
+  </script>
+    <div class="navbar">
+    <div class="navbar-inner">
+      <a class="brand" href="home.html" aria-label="shababJO">
+        <div class="brand-badge">SJ</div>
+        <div class="brand-title">shababJO</div>
+      </a>
+
+      <div class="navlinks">
+        <a class="navbtn primary" href="home.html">الرئيسية</a>
+        <a class="navbtn " href="people.html">الأشخاص</a>
+        <a class="navbtn logout" href="#" onclick="shababJO.logout();return false;">تسجيل خروج</a>
+      </div>
+    </div>
+  </div>
+<div class="brand-title">shababJO</div>
+      </a>
+
+      <div class="navlinks">
+        <a class="navbtn primary" href="home.html">الرئيسية</a>
+        <a class="navbtn " href="people.html">الأشخاص</a>
+        <a class="navbtn logout" href="#" onclick="shababJO.logout();return false;">تسجيل خروج</a>
+      </div>
+    </div>
+    <div class="footer-note">واجهة مناسبة للموبايل — شغّال على GitHub Pages.</div>
+  </div>
+
+<div class="hero">
+  <div class="pill" style="display:inline-flex; margin:0 auto; gap:10px">
+    <span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 18px rgba(93,226,255,.35)"></span>
+    <span style="font-weight:900">shababJO</span>
+  </div>
+  <h1 class="hero-title">نموذج تسجيل</h1>
+  <p class="hero-sub">واجهة سريعة وسلسة على الهاتف، مع تجربة إدخال مريحة وإشعارات فورية.</p>
+</div>
+
+<div class="container" style="padding-top:10px;padding-bottom:26px;">
+  <div class="card">
+    <h2>تسجيل الدخول</h2>
+    <p class="muted">سيتم حفظ بيانات الدخول على جهازك حتى لا تعيد كتابتها.</p>
+
+    <form id="loginForm" autocomplete="on">
+      <div class="row">
+        <div>
+          <label>اسم المستخدم *</label>
+          <input id="username" name="username" required autocomplete="username" inputmode="numeric" />
+        </div>
+        <div>
+          <label>الرمز *</label>
+          <input id="code" name="password" type="password" required autocomplete="current-password" />
+        </div>
+      </div>
+
+      <div class="check">
+        <input id="rememberMe" type="checkbox" />
+        <label for="rememberMe" style="margin:0;color:var(--text);font-size:13px">تذكرني على هذا الجهاز</label>
+      </div>
+
+      <button class="btn" type="submit">دخول</button>
+      <button class="btn secondary" type="button" id="clearSaved" style="display:none;">حذف بيانات الدخول المحفوظة</button>
+
+      <div id="loginErr" class="status err"></div>
+      <div id="loginOk" class="status ok"></div>
+    </form>
+
+    <div id="mainFormBox" style="display:none; margin-top:16px;">
+      <h2 style="margin-top:0;">البيانات المطلوبة</h2>
+      <p class="muted">حدد الموقع (GPS) أو أدخل رابط الموقع يدويًا، ثم عبّي البيانات واضغط إرسال.</p>
+
+      <div class="inline">
+        <button class="btn secondary" type="button" id="locBtn">تحديد موقعي (GPS)</button>
+        <span class="pill" id="locPill">لم يتم تحديد الموقع بعد</span>
+      </div>
+
+      <div class="kpi">
+        <div class="box">
+          <p class="t">دقّة الموقع</p>
+          <p class="v" id="accText">—</p>
+        </div>
+        <div class="box">
+          <p class="t">رابط الموقع</p>
+          <p class="v" style="font-size:12px; font-weight:700; word-break:break-all" id="mapsLinkText">—</p>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label>أو أدخل رابط الموقع يدويًا (Google Maps) *</label>
+        <div class="row">
+          <input id="manualLoc" placeholder="مثال: https://maps.google.com/?q=31.95,35.93" />
+          <button class="btn secondary" type="button" id="useManualLoc">استخدام الرابط</button>
+        </div>
+      </div>
+
+      <form id="uiForm" autocomplete="off">
+        <div class="row">
+          <div>
+            <label>الاسم الكامل *</label>
+            <input id="fullName" required />
+          </div>
+          <div>
+            <label>عدد أفراد الأسرة *</label>
+            <select id="familySize" required>
+              <option value="" disabled selected>اختر</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>رقم الهاتف *</label>
+            <input id="phone" required type="tel" inputmode="numeric" autocomplete="tel" />
+          </div>
+          <div>
+            <label>دخل الأسرة تقريبًا؟ *</label>
+            <select id="income" required>
+              <option value="" disabled selected>اختر</option>
+              <option>100-200</option><option>200-250</option><option>250-300</option><option>300-350</option>
+              <option>350-400</option><option>400-450</option><option>450-500</option><option>500-550</option>
+              <option>550-600</option><option>600-650</option><option>650-700</option><option>700-750</option>
+              <option>750-800</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>الحالات الخاصة *</label>
+            <select id="special" required>
+              <option value="" disabled selected>اختر</option>
+              <option>لا يوجد</option>
+              <option>إعاقة جسدية</option>
+              <option>إعاقة عقلية</option>
+            </select>
+          </div>
+          <div>
+            <label>الحالة السكنية *</label>
+            <select id="housing" required>
+              <option value="" disabled selected>اختر</option>
+              <option>ملك</option>
+              <option>استئجار</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="casesBox" style="display:none;">
+          <label>كم حالة؟ *</label>
+          <select id="casesCount">
+            <option value="" disabled selected>اختر</option>
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+          </select>
+        </div>
+
+        <div class="kpi">
+          <div class="box">
+            <p class="t">التصنيف</p>
+            <p class="v"><span class="badge" id="classBadge">—</span></p>
+          </div>
+          <div class="box">
+            <p class="t">نقاط الحاجة</p>
+            <p class="v" id="scoreText">—</p>
+          </div>
+        </div>
+
+        <button class="btn" type="submit" id="submitBtn">إرسال</button>
+        <div id="submitOk" class="status ok"></div>
+        <div id="submitErr" class="status err"></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="footer">© shababJO</div>
+
+<script>
+  const el = (id)=>document.getElementById(id);
+
+  /***************
+   * Login
+   ***************/
+  const ALLOWED_USERS = new Set([
+    "2100706142","2100706042","2100706041","2100706040","2100706043","1"
+  ]);
+  const ACCESS_CODE = new Set(["Balma2026","1"]);
+
+  const LS_KEY = "balma_login_v1";
+
+  function loadSavedLogin(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return;
+      if (typeof data.username === 'string') el('username').value = data.username;
+      if (typeof data.code === 'string') el('code').value = data.code;
+      if (data.remember === true) el('rememberMe').checked = true;
+      el('clearSaved').style.display = 'block';
+    } catch {}
+  }
+  function saveLoginIfWanted(username, code){
+    if (!el('rememberMe').checked) return;
+    localStorage.setItem(LS_KEY, JSON.stringify({ username, code, remember:true }));
+    el('clearSaved').style.display = 'block';
+  }
+  function clearSavedLogin(){
+    localStorage.removeItem(LS_KEY);
+    el('clearSaved').style.display = 'none';
+  }
+
+  el('clearSaved').addEventListener('click', clearSavedLogin);
+  loadSavedLogin();
+
+  el("loginForm").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    el("loginErr").style.display = "none";
+    el("loginOk").style.display = "none";
+
+    const u = el("username").value.trim();
+    const c = el("code").value.trim();
+
+    if (!ALLOWED_USERS.has(u) || !ACCESS_CODE.has(c)){
+      el("loginErr").className = "status err";
+      el("loginErr").textContent = "بيانات الدخول غير صحيحة.";
+      el("loginErr").style.display = "block";
+      return;
+    }
+
+    saveLoginIfWanted(u, c);
+
+    el("loginOk").className = "status ok";
+    el("loginOk").textContent = "تم تسجيل الدخول ✅";
+    el("loginOk").style.display = "block";
+
+    el("mainFormBox").style.display = "block";
+    el("loginForm").style.display = "none";
+  });
+
+  /***************
+   * Apps Script endpoint
+   ***************/
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvJqmeOFQPwBR5BuZPU5V1roPMh765RXN60lob_30h6z0oyxCc9G9Cl3Wrzv3OCNGR/exec";
+const TOKEN = "Farhan-2026-Secret";
+
+
+
+  /***************
+   * Pending Queue
+   ***************/
+  function fingerprint(obj){
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+  }
+  const PENDING_KEY = "balma_pending_v3";
+
+  function loadPending(){
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); }
+    catch { return []; }
+  }
+  function savePending(arr){
+    localStorage.setItem(PENDING_KEY, JSON.stringify(arr));
+  }
+  function addPending(payload){
+    const fp = fingerprint(payload);
+    const arr = loadPending();
+    if (arr.some(x => x && x.fp === fp)) return;
+    arr.push({ fp, payload, at: Date.now(), tries: 0 });
+    savePending(arr);
+  }
+
+  async function submitViaScript(payload, timeoutMs = 15000){
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), timeoutMs);
+
+    try{
+      // form-urlencoded (أوثق مع Apps Script على iPhone/Safari/GitHub Pages)
+      const body = new URLSearchParams();
+      Object.entries(payload).forEach(([k,v])=>{
+        body.append(k, v === null || v === undefined ? "" : String(v));
+      });
+
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString(),
+        signal: controller.signal
+      });
+
+      const text = await res.text();
+      let out = null;
+      try { out = JSON.parse(text); } catch {}
+
+      if (!res.ok) throw new Error("HTTP " + res.status + " :: " + text);
+      if (!out || out.ok !== true) throw new Error("Bad response :: " + text);
+
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function flushPending(){
+    if (!navigator.onLine) return;
+    const arr = loadPending();
+    if (!arr.length) return;
+
+    const remaining = [];
+    for (const item of arr){
+      try{
+        item.tries = (item.tries || 0) + 1;
+        await submitViaScript(item.payload, 15000);
+      } catch {
+        remaining.push(item);
+      }
+    }
+    savePending(remaining);
+  }
+
+  window.addEventListener("online", flushPending);
+  setInterval(flushPending, 60000);
+
+  /***************
+   * Form options
+   ***************/
+  const familySelect = el("familySize");
+  for (let i=1;i<=20;i++){
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = String(i);
+    familySelect.appendChild(opt);
+  }
+
+  /***************
+   * Conditional cases
+   ***************/
+  el("special").addEventListener("change", (e)=>{
+    const v = e.target.value;
+    const has = (v==="إعاقة جسدية" || v==="إعاقة عقلية");
+    el("casesBox").style.display = has ? "block" : "none";
+    if (!has) el("casesCount").value = "";
+    recalc();
+  });
+
+  /***************
+   * Scoring + classification
+   ***************/
+  function incomePoints(range){
+    const map = {
+      "100-200": 6, "200-250": 5, "250-300": 4, "300-350": 3,
+      "350-400": 2, "400-450": 1, "450-500": 0, "500-550": -1,
+      "550-600": -2, "600-650": -3, "650-700": -4, "700-750": -5,
+      "750-800": -6
+    };
+    return map[range] ?? 0;
+  }
+  function familyPoints(n){
+    const x = Number(n);
+    if (x<=2) return 0;
+    if (x<=4) return 1;
+    if (x<=6) return 2;
+    if (x<=8) return 3;
+    if (x<=10) return 4;
+    if (x<=12) return 5;
+    return 6;
+  }
+  function housingPoints(h){ return (h==="استئجار") ? 2 : 0; }
+  function specialPoints(special, countStr){
+    const has = (special==="إعاقة جسدية" || special==="إعاقة عقلية");
+    if (!has) return 0;
+    return Number(countStr || 0) * 2;
+  }
+  function toClass(score){
+    if (score >= 12) return "A";
+    if (score >= 10) return "B";
+    if (score >= 8)  return "C";
+    if (score >= 6)  return "D";
+    if (score >= 4)  return "E";
+    if (score >= 2)  return "F";
+    return "G";
+  }
+  function recalc(){
+    const income = el("income").value;
+    const family = el("familySize").value;
+    const special = el("special").value;
+    const housing = el("housing").value;
+    const has = (special==="إعاقة جسدية" || special==="إعاقة عقلية");
+    const cases = has ? el("casesCount").value : "0";
+
+    if (!income || !family || !special || !housing){
+      el("classBadge").textContent = "—";
+      el("scoreText").textContent = "—";
+      return;
+    }
+    const score = incomePoints(income) + familyPoints(family) + housingPoints(housing) + specialPoints(special, cases);
+    el("scoreText").textContent = String(score);
+    el("classBadge").textContent = toClass(score);
+  }
+  ["income","familySize","special","housing","casesCount"].forEach(id=>{
+    el(id).addEventListener("change", recalc);
+  });
+
+  function validatePhone(phone){ return /^07\d{8}$/.test((phone||"").trim()); }
+
+  /***************
+   * Location (GPS strict + manual link)
+   ***************/
+  const REQUIRED_ACCURACY_M = 30;
+  const MAX_TRIES = 8;
+  const WAIT_MS = 1200;
+
+  let currentMapsLink = null;
+  let currentAccuracy = null;
+  let manualLocationUsed = false;
+
+  function setGps(lat, lng, accuracy){
+    manualLocationUsed = false;
+    currentAccuracy = accuracy;
+    currentMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    el("accText").textContent = `${Math.round(accuracy)} م`;
+    el("mapsLinkText").textContent = currentMapsLink;
+    el("locPill").textContent = `تم تحديد الموقع ✅ (±${Math.round(accuracy)}م)`;
+  }
+
+  async function getStrictGps(){
+    el("submitErr").style.display = "none";
+    el("submitOk").style.display = "none";
+
+    if (!navigator.geolocation){
+      el("locPill").textContent = "المتصفح لا يدعم تحديد الموقع.";
+      return;
+    }
+
+    el("locPill").textContent = "جاري تحديد الموقع بدقة GPS...";
+    el("accText").textContent = "—";
+    el("mapsLinkText").textContent = "—";
+    currentMapsLink = null;
+    currentAccuracy = null;
+    manualLocationUsed = false;
+
+    let best = null;
+
+    for (let i=1; i<=MAX_TRIES; i++){
+      const pos = await new Promise((resolve)=>{
+        navigator.geolocation.getCurrentPosition(
+          (p)=> resolve(p),
+          ()=> resolve(null),
+          { enableHighAccuracy:true, maximumAge:0, timeout:20000 }
+        );
+      });
+
+      if (pos){
+        const { latitude, longitude, accuracy } = pos.coords;
+        const cand = { latitude, longitude, accuracy };
+        if (!best || cand.accuracy < best.accuracy) best = cand;
+
+        el("accText").textContent = `${Math.round(cand.accuracy)} م (محاولة ${i}/${MAX_TRIES})`;
+
+        if (cand.accuracy <= REQUIRED_ACCURACY_M){
+          setGps(cand.latitude, cand.longitude, cand.accuracy);
+          return;
+        }
+      }
+      await new Promise(r=>setTimeout(r, WAIT_MS));
+    }
+
+    if (!best){
+      el("locPill").textContent = "تأكد من السماح بالموقع وحاول مرة ثانية.";
+      return;
+    }
+
+    el("locPill").textContent = `الدقة ضعيفة (±${Math.round(best.accuracy)}م). فعّل High Accuracy وحاول.`;
+    el("submitErr").className = "status err";
+    el("submitErr").textContent =
+      `الموقع غير مقبول لأنه غير دقيق.\nالدقة الحالية: ±${Math.round(best.accuracy)} متر.\nشغّل GPS وHigh Accuracy ثم أعد المحاولة.`;
+    el("submitErr").style.display = "block";
+  }
+  el("locBtn").addEventListener("click", getStrictGps);
+
+  function isValidMapsLink(url){
+    try{
+      const u = new URL(url);
+      const hostOk = u.hostname.includes("google.") || u.hostname.includes("goo.gl");
+      const looksLikeMaps =
+        url.includes("maps") || url.includes("?q=") || url.includes("/place/") || url.includes("/@");
+      return hostOk && looksLikeMaps;
+    } catch { return false; }
+  }
+
+  el("useManualLoc").addEventListener("click", ()=>{
+    el("submitErr").style.display = "none";
+    el("submitOk").style.display = "none";
+
+    const link = el("manualLoc").value.trim();
+    if (!isValidMapsLink(link)){
+      el("submitErr").className = "status err";
+      el("submitErr").textContent = "رابط الموقع غير صحيح. انسخه من Google Maps (مشاركة → نسخ الرابط).";
+      el("submitErr").style.display = "block";
+      return;
+    }
+
+    manualLocationUsed = true;
+    currentMapsLink = link;
+    currentAccuracy = null;
+
+    el("accText").textContent = "يدوي";
+    el("mapsLinkText").textContent = currentMapsLink;
+    el("locPill").textContent = "تم إدخال الموقع يدويًا ✅";
+  });
+
+  /***************
+   * Submit
+   ***************/
+  el("uiForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    el("submitOk").style.display = "none";
+    el("submitErr").style.display = "none";
+
+    const fullName = el("fullName").value.trim();
+    const familySize = el("familySize").value;
+    const phone = el("phone").value.trim();
+    const income = el("income").value;
+    const special = el("special").value;
+    const housing = el("housing").value;
+
+    const has = (special==="إعاقة جسدية" || special==="إعاقة عقلية");
+    const cases = has ? el("casesCount").value : "0";
+
+    if (!validatePhone(phone)){
+      el("submitErr").className = "status err";
+      el("submitErr").textContent = "رقم الهاتف غير صحيح (07XXXXXXXX).";
+      el("submitErr").style.display = "block";
+      return;
+    }
+    if (has && (!cases || cases==="")){
+      el("submitErr").className = "status err";
+      el("submitErr").textContent = "اختر عدد الحالات.";
+      el("submitErr").style.display = "block";
+      return;
+    }
+    if (!currentMapsLink){
+      el("submitErr").className = "status err";
+      el("submitErr").textContent = "لازم تحدد الموقع (GPS) أو تدخل رابط الموقع يدويًا.";
+      el("submitErr").style.display = "block";
+      return;
+    }
+    if (!manualLocationUsed && currentAccuracy !== null && currentAccuracy > REQUIRED_ACCURACY_M){
+      el("submitErr").className = "status err";
+      el("submitErr").textContent = `الدقة الحالية ±${Math.round(currentAccuracy)}م (مرفوضة). اضغط تحديد موقعي وحاول.`;
+      el("submitErr").style.display = "block";
+      return;
+    }
+
+    const score =
+      incomePoints(income) +
+      familyPoints(familySize) +
+      housingPoints(housing) +
+      specialPoints(special, cases);
+
+    const classification = toClass(score);
+const TOKEN = "Farhan-2026-Secret";
+
+    const payload = {
+  token: TOKEN,            // ✅ هنا بالضبط
+  fullName,
+  familySize,
+  phone,
+  income,
+  special,
+  cases,
+  housing,
+  classification,
+  location: currentMapsLink,
+  locationMode: manualLocationUsed ? "manual" : "gps",
+  accuracy: manualLocationUsed ? "" : String(Math.round(currentAccuracy || 0)),
+  submittedAt: new Date().toISOString()
+};
+
+
+    const btn = el("submitBtn");
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = "جاري الإرسال...";
+
+    try{
+      await submitViaScript(payload, 15000);
+
+      el("submitOk").className = "status ok";
+      el("submitOk").textContent =
+        `تم الحفظ ✅\nالتصنيف: ${classification} | نقاط: ${score}\nالموقع: ${manualLocationUsed ? "يدوي" : ("GPS ±" + Math.round(currentAccuracy) + "م")}`;
+      el("submitOk").style.display = "block";
+
+      flushPending();
+    } catch (err){
+      addPending(payload);
+
+      el("submitErr").className = "status err";
+      el("submitErr").textContent =
+        "تعذّر تأكيد الحفظ الآن.\n" +
+        "السبب: " + (err && err.message ? err.message : String(err)) + "\n" +
+        "تم حفظ الطلب على الجهاز وسيتم إعادة المحاولة تلقائيًا.";
+      el("submitErr").style.display = "block";
+
+      flushPending();
+    } finally{
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  });
+
+  // أول ما تفتح الصفحة حاول إرسال أي pending
+  flushPending();
+</script>
+
+</body>
+</html>
+
+

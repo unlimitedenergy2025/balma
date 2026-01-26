@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تسجيل الدخول | shababJO</title>
+  <meta name="theme-color" content="#0A1224" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235DE2FF'/%3E%3Cstop offset='1' stop-color='%23A78BFA'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Ctext x='32' y='41' font-size='26' text-anchor='middle' font-family='Arial' fill='white'%3ESJ%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="assets/app.css" />
+  <script src="assets/auth.js"></script>
+  <script src="assets/app.js"></script>
+  <style>
+    .auth-wrap{min-height:100vh; display:grid; place-items:center; padding:18px}
+    .auth-card{max-width:440px; width:100%; padding:18px}
+    .top{display:flex; align-items:center; gap:12px; margin-bottom:10px}
+    .logo{
+      width:52px; height:52px; border-radius:18px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, rgba(0, 179, 255, 0.28), rgba(254, 254, 254, 0.2));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 24px 80px rgba(2, 242, 255, 0.35);
+      font-weight:1000;
+      letter-spacing:.4px;
+    }
+    .t1{font-weight:1000; font-size:20px; margin:0}
+    .t2{color:var(--muted); font-size:13px; margin:4px 0 0; line-height:1.7}
+    .divider{height:1px; background: rgba(244, 244, 244, 0.1); margin:14px 0}
+    .error{display:none; margin-top:12px}
+    .error .notice{border-color: rgba(255, 255, 255, 0.26); color: rgba(255,255,255,.82)}
+    .kbd{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(213, 13, 13, 0.14);
+      background: rgba(255, 255, 255, 0.16);
+      font-size:12px; color:var(--muted)
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="glass auth-card">
+      <div class="top">
+        <div class="logo">SJ</div>
+        <div style="flex:1">
+          <p class="t1">shababJO</p>
+          <p class="t2">انت مؤتمن على ما ترى كن على قدر المسؤولية</p>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <form id="loginForm" class="grid" autocomplete="on">
+        <div>
+          <label for="username">اسم المستخدم</label>
+          <input id="username" name="username" required autocomplete="username" placeholder="اسم المستخدم" />
+        </div>
+
+        <div>
+          <label for="password">كلمة المرور</label>
+          <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+        </div>
+
+        <button class="btn" type="submit">دخول</button>
+
+        <div id="err" class="error">
+          <div class="notice">بيانات الدخول غير صحيحة.</div>
+        </div>
+
+        <div style="display:flex; justify-content:center; margin-top:4px">
+          <span class="kbd">Designed for shababJO</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const DEMO_USER = "user";
+    const DEMO_PASS = "1234";
+
+    const params = new URLSearchParams(location.search);
+    const next = params.get("next") || "home.html";
+
+    const form = document.getElementById("loginForm");
+    const err = document.getElementById("err");
+
+    function go(){ location.href = next; }
+
+    form.addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const u = document.getElementById("username").value.trim();
+      const p = document.getElementById("password").value;
+
+      if(u === DEMO_USER && p === DEMO_PASS){
+        localStorage.setItem("shababjo_auth","1");
+        if(window.shababJO && shababJO.toast) shababJO.toast("success","تم تسجيل الدخول","مرحبًا بك في shababJO");
+        setTimeout(go, 250);
+      }else{
+        err.style.display = "block";
+        if(window.shababJO && shababJO.toast) shababJO.toast("danger","تعذر الدخول","تحقق من اسم المستخدم وكلمة المرور");
+      }
+    });
+
+    if(localStorage.getItem("shababjo_auth")==="1"){
+      setTimeout(go, 40);
+    }
+  </script>
+</body>
+</html>

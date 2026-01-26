@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>الأشخاص | shababJO</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235DE2FF'/%3E%3Cstop offset='1' stop-color='%23A78BFA'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Ctext x='32' y='41' font-size='26' text-anchor='middle' font-family='Arial' fill='white'%3ESJ%3C/text%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#0A1224" />
+  
+
+  
+  
+
+  <link rel="stylesheet" href="assets/app.css" />
+  <script src="assets/auth.js"></script>
+  <script src="assets/app.js"></script>
+</head>
+
+<body>
+  <script>
+    // Protect this page
+    shababJO.requireAuth();
+  </script>
+    <div class="navbar">
+    <div class="navbar-inner">
+      <a class="brand" href="home.html" aria-label="shababJO">
+        <div class="brand-badge">SJ</div>
+        <div class="brand-title">shababJO</div>
+      </a>
+
+      <div class="navlinks">
+        <a class="navbtn " href="home.html">الرئيسية</a>
+        <a class="navbtn primary" href="people.html">الأشخاص</a>
+        <a class="navbtn logout" href="#" onclick="shababJO.logout();return false;">تسجيل خروج</a>
+      </div>
+    </div>
+  </div>
+<div class="brand-title">shababJO</div>
+      </a>
+
+      <div class="navlinks">
+        <a class="navbtn " href="home.html">الرئيسية</a>
+        <a class="navbtn primary" href="people.html">الأشخاص</a>
+        <a class="navbtn logout" href="#" onclick="shababJO.logout();return false;">تسجيل خروج</a>
+      </div>
+    </div>
+  </div>
+
+
+<div class="hero">
+  <div class="pill" style="display:inline-flex; margin:0 auto; gap:10px">
+    <span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 18px rgba(93,226,255,.35)"></span>
+    <span style="font-weight:900">shababJO</span>
+  </div>
+  <h1 class="hero-title">الأشخاص</h1>
+  <p class="hero-sub">تحديث مباشر، فلترة ذكية، وترتيب حسب الأقرب عند تفعيل الموقع.</p>
+</div>
+
+<div class="container" style="padding-top:0">
+  <div class="person-card">
+    <div class="row">
+      <button id="btnLoc" class="btn" type="button">تحديث موقعي</button>
+      <button id="btnReload" class="btn secondary" type="button">تحديث البيانات</button>
+    </div>
+
+    <div style="margin-top:10px" class="notice">
+      <span id="lastUpd">آخر تحديث: —</span>
+      <span style="margin-inline-start:10px" id="status"></span>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label>فلتر المنطقة</label>
+        <select id="fZone"></select>
+      </div>
+      <div>
+        <label>فلتر تصنيف العائلة</label>
+        <select id="fClass"></select>
+      </div>
+      <div>
+        <label>فلتر الحالات الخاصة</label>
+        <select id="fSpecial"></select>
+      </div>
+      <div>
+        <label>فلتر الحالة السكنية</label>
+        <select id="fHousing"></select>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:12px"></div>
+  <div id="app"></div>
+</div>
+
+
+
+
+<script>
+  // =========================
+  // (A) ربط Google Apps Script (نفس كودك) :contentReference[oaicite:2]{index=2}
+  // =========================
+  // (A) ربط Google Apps Script (نفس الشيت)
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzvJqmeOFQPwBR5BuZPU5V1roPMh765RXN60lob_30h6z0oyxCc9G9Cl3Wrzv3OCNGR/exec";
+const TOKEN = "Farhan-2026-Secret";
+
+
+  async function loadPeopleFromSheet(){
+    const url = `${WEB_APP_URL}?token=${encodeURIComponent(TOKEN)}&t=${Date.now()}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || "load_failed");
+    window.PEOPLE = Array.isArray(data.people) ? data.people : [];
+  }
+
+  // =========================
+  // 1) نقاط تقسيم المناطق (5 + مشتق 6 و7) :contentReference[oaicite:3]{index=3}
+  // =========================
+  const ZONE_SEEDS = [
+    { id: 1, name: "منطقة 1", lat: 32.233939634375226, lng: 36.0872355820864 },
+    { id: 2, name: "منطقة 2", lat: 32.23422199021293,  lng: 36.09855074650202 },
+    { id: 3, name: "منطقة 3", lat: 32.2235286199349,   lng: 36.11378240529544 },
+    { id: 4, name: "منطقة 4", lat: 32.24254442140211,  lng: 36.086860549730744 },
+    { id: 5, name: "منطقة 5", lat: 32.2331538173363,   lng: 36.070972207361145 },
+    { id: 6, name: "منطقة 6", lat: (32.23422199021293 + 32.2235286199349)/2,
+                              lng: (36.09855074650202 + 36.11378240529544)/2 },
+    { id: 7, name: "منطقة 7", lat: (32.24254442140211 + 32.2331538173363)/2,
+                              lng: (36.086860549730744 + 36.070972207361145)/2 },
+  ];
+
+  const ZONE_COLORS = {
+    1: "#1a2b55",
+    2: "#2a1f55",
+    3: "#0f3d3a",
+    4: "#3b2a0f",
+    5: "#3a1242",
+    6: "#163b2a",
+    7: "#2b3b16"
+  };
+
+  // =========================
+  // 2) أدوات مسافة / تجميع :contentReference[oaicite:4]{index=4}
+  // =========================
+  function toRad(x){ return x * Math.PI / 180; }
+  function haversineKm(a,b){
+    if(!a || !b || a.lat==null || a.lng==null || b.lat==null || b.lng==null) return Infinity;
+    const R=6371;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const s1=Math.sin(dLat/2), s2=Math.sin(dLng/2);
+    const q=s1*s1 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*s2*s2;
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(q)));
+  }
+
+  function clusterDBSCAN(points, epsKm=1.0, minPts=1){
+    const n=points.length;
+    const labels=new Array(n).fill(undefined);
+    let clusterId=0;
+
+    function regionQuery(i){
+      const res=[];
+      for(let j=0;j<n;j++){
+        if(i===j) continue;
+        if(haversineKm(points[i], points[j]) <= epsKm) res.push(j);
+      }
+      return res;
+    }
+
+    function expand(i, neighbors){
+      labels[i]=clusterId;
+      let k=0;
+      while(k<neighbors.length){
+        const j=neighbors[k];
+        if(labels[j]===-1) labels[j]=clusterId;
+        if(labels[j]!==undefined){ k++; continue; }
+        labels[j]=clusterId;
+        const nbs=regionQuery(j);
+        if(nbs.length+1 >= minPts){
+          for(const x of nbs){
+            if(!neighbors.includes(x)) neighbors.push(x);
+          }
+        }
+        k++;
+      }
+    }
+
+    for(let i=0;i<n;i++){
+      if(labels[i]!==undefined) continue;
+      const neighbors=regionQuery(i);
+      if(neighbors.length+1 < minPts){
+        labels[i]=-1;
+      }else{
+        expand(i, neighbors);
+        clusterId++;
+      }
+    }
+    return labels;
+  }
+
+  // ✅ محسّن: يدعم q= و @ و q%3D و query= في الروابط
+  function parseLatLngFromLink(link){
+    if(!link) return null;
+    const s = String(link);
+
+    // q=lat,lng
+    let m = s.match(/[?&]q=([-\d.]+),([-\d.]+)/);
+    if(m) return {lat: Number(m[1]), lng: Number(m[2])};
+
+    // q%3Dlat,lng (encoded)
+    m = s.match(/q%3D([-\d.]+),([-\d.]+)/i);
+    if(m) return {lat: Number(m[1]), lng: Number(m[2])};
+
+    // @lat,lng
+    m = s.match(/@([-\d.]+),([-\d.]+)/);
+    if(m) return {lat: Number(m[1]), lng: Number(m[2])};
+
+    // query=lat,lng
+    m = s.match(/[?&]query=([-\d.]+),([-\d.]+)/i);
+    if(m) return {lat: Number(m[1]), lng: Number(m[2])};
+
+    return null;
+  }
+
+  function nearestZone(p){
+    let best = null;
+    let bestD = Infinity;
+    for(const z of ZONE_SEEDS){
+      const d = haversineKm(p, z);
+      if(d < bestD){
+        bestD = d; best = z;
+      }
+    }
+    return { zoneId: best?.id ?? null, zoneName: best?.name ?? "غير معروف", zoneDistKm: bestD };
+  }
+
+  // =========================
+  // 3) الحالة العامة والواجهة :contentReference[oaicite:5]{index=5}
+  // =========================
+  const elApp = document.getElementById("app");
+  const elStatus = document.getElementById("status");
+  const elBtnLoc = document.getElementById("btnLoc");
+  const elBtnReload = document.getElementById("btnReload");
+  const elLastUpd = document.getElementById("lastUpd");
+
+  const elFZone = document.getElementById("fZone");
+  const elFClass = document.getElementById("fClass");
+  const elFSpecial = document.getElementById("fSpecial");
+  const elFHousing = document.getElementById("fHousing");
+
+  const state = {
+    me: null,
+    people: [],
+    filters: {
+      zone: "all",
+      family_class: "all",
+      special: "all", // all / yes / no
+      housing: "all"
+    }
+  };
+
+  function setStatus(msg){ elStatus.textContent = msg || ""; }
+
+  function directionsUrl(dest){
+    const base = "https://www.google.com/maps/dir/?api=1&travelmode=driving";
+    if(state.me && isFinite(state.me.lat) && isFinite(state.me.lng)){
+      return base + `&origin=${state.me.lat},${state.me.lng}&destination=${dest.lat},${dest.lng}`;
+    }
+    return base + `&destination=${dest.lat},${dest.lng}`;
+  }
+  function mapPinUrl(dest){ return `https://maps.google.com/?q=${dest.lat},${dest.lng}`; }
+
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  // ✅ helper: هل يوجد حالات خاصة فعلًا؟
+  function hasSpecial(s){
+    const v = String(s || "").trim();
+    if(!v) return false;
+    if(v === "لا يوجد") return false;
+    return true;
+  }
+
+  // تحويل window.PEOPLE (من الشيت) إلى state.people
+  function loadFromPeopleData(){
+    const raw = (window.PEOPLE || []).map(p=>{
+      const c = (p.lat!=null && p.lng!=null && String(p.lat).trim()!=="" && String(p.lng).trim()!=="")
+        ? {lat:Number(p.lat), lng:Number(p.lng)}
+        : parseLatLngFromLink(p.maps_link);
+
+      const person = {
+        name: (p.name ?? "").toString().trim(),
+        phone: (p.phone ?? "").toString().trim(),
+        family_size: (p.family_size ?? "").toString().trim(),
+        income: (p.income ?? "").toString().trim(),
+        special_cases: (p.special_cases ?? "").toString().trim(),
+        special_cases_count: (p.special_cases_count ?? "").toString().trim(),
+        housing: (p.housing ?? "").toString().trim(),
+        family_class: (p.family_class ?? "").toString().trim(),
+        maps_link: (p.maps_link ?? "").toString().trim(),
+        lat: c ? c.lat : null,
+        lng: c ? c.lng : null
+      };
+
+      const z = nearestZone(person);
+      person.zoneId = z.zoneId;
+      person.zoneName = z.zoneName;
+
+      return person;
+    });
+
+    state.people = raw;
+  }
+
+  function uniqueVals(arr, key){
+    const set = new Set();
+    for(const x of arr){
+      const v = (x[key] ?? "").toString().trim();
+      if(v) set.add(v);
+    }
+    return Array.from(set).sort((a,b)=> a.localeCompare(b,'ar'));
+  }
+
+  function buildFilters(){
+    elFZone.innerHTML = `<option value="all">الكل</option>` +
+      ZONE_SEEDS.map(z=> `<option value="${z.id}">${z.name}</option>`).join("");
+
+    const classes = uniqueVals(state.people, "family_class");
+    elFClass.innerHTML = `<option value="all">الكل</option>` +
+      classes.map(v=> `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+
+    const housings = uniqueVals(state.people, "housing");
+    elFHousing.innerHTML = `<option value="all">الكل</option>` +
+      housings.map(v=> `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+
+    elFSpecial.innerHTML = `
+      <option value="all">الكل</option>
+      <option value="yes">يوجد حالات خاصة</option>
+      <option value="no">لا يوجد</option>
+    `;
+  }
+
+  function applyFilters(){
+    let arr = [...state.people];
+    const f = state.filters;
+
+    if(f.zone !== "all"){
+      const zid = Number(f.zone);
+      arr = arr.filter(p => p.zoneId === zid);
+    }
+    if(f.family_class !== "all"){
+      arr = arr.filter(p => (p.family_class ?? "") === f.family_class);
+    }
+    if(f.housing !== "all"){
+      arr = arr.filter(p => (p.housing ?? "") === f.housing);
+    }
+    if(f.special !== "all"){
+      if(f.special === "yes"){
+        arr = arr.filter(p => hasSpecial(p.special_cases));
+      }else{
+        arr = arr.filter(p => !hasSpecial(p.special_cases));
+      }
+    }
+
+    arr = arr.map(p=>{
+      const d = haversineKm(state.me, p);
+      return {...p, distanceKm: d};
+    }).sort((a,b)=> (a.distanceKm||Infinity) - (b.distanceKm||Infinity));
+
+    return arr;
+  }
+
+  function cardHtml(p){
+    const hasCoords = p.lat!=null && p.lng!=null && isFinite(p.lat) && isFinite(p.lng);
+    const dist = isFinite(p.distanceKm) ? `${p.distanceKm.toFixed(2)} كم` : "—";
+    const dest = {lat:p.lat, lng:p.lng};
+
+    const showCasesCount = hasSpecial(p.special_cases) && String(p.special_cases_count || "").trim() !== "";
+
+    return `
+      <div class="person-card">
+        <div class="person-name">${escapeHtml(p.name || "بدون اسم")}</div>
+
+        <div class="person-meta">📍 ${escapeHtml(p.zoneName || "")}</div>
+        ${p.phone ? `<div class="person-meta">📞 ${escapeHtml(p.phone)}</div>` : ""}
+        ${p.family_size ? `<div class="person-meta">👨‍👩‍👧‍👦 عدد أفراد الأسرة: ${escapeHtml(p.family_size)}</div>` : ""}
+        ${p.income ? `<div class="person-meta">💰 دخل الأسرة: ${escapeHtml(p.income)}</div>` : ""}
+        ${p.housing ? `<div class="person-meta">🏠 الحالة السكنية: ${escapeHtml(p.housing)}</div>` : ""}
+        ${p.family_class ? `<div class="person-meta">🏷️ تصنيف العائلة: ${escapeHtml(p.family_class)}</div>` : ""}
+        ${hasSpecial(p.special_cases) ? `<div class="person-meta">⚕️ الحالات الخاصة: ${escapeHtml(p.special_cases)}</div>` : ""}
+        ${showCasesCount ? `<div class="person-meta">🔢 كم حالة: ${escapeHtml(p.special_cases_count)}</div>` : ""}
+
+        <div class="pills">
+          <span class="pill">المسافة: ${dist}</span>
+          ${hasCoords ? `<span class="pill">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</span>` : `<span class="pill">لا يوجد إحداثيات</span>`}
+        </div>
+
+        ${
+          hasCoords
+          ? `<div class="person-actions">
+              <a class="primary" target="_blank" rel="noopener" href="${directionsUrl(dest)}">بدء الرحلة (سيارة)</a>
+              <a target="_blank" rel="noopener" href="${mapPinUrl(dest)}">فتح الموقع</a>
+            </div>`
+          : `<div class="small" style="margin-top:10px">لا يمكن بدء الرحلة لأن الإحداثيات غير موجودة (الرابط غير واضح).</div>`
+        }
+      </div>
+    `;
+  }
+
+  function render(){
+    const arr = applyFilters();
+    if(!arr.length){
+      elApp.innerHTML = `<div class="box">لا يوجد نتائج حسب الفلاتر الحالية.</div>`;
+      return;
+    }
+
+    const byZone = new Map();
+    for(const p of arr){
+      const zid = p.zoneId ?? 0;
+      if(!byZone.has(zid)) byZone.set(zid, []);
+      byZone.get(zid).push(p);
+    }
+
+    const zonesOrdered = Array.from(byZone.entries()).sort((a,b)=>{
+      const da = Math.min(...a[1].map(x=>x.distanceKm||Infinity));
+      const db = Math.min(...b[1].map(x=>x.distanceKm||Infinity));
+      return da - db;
+    });
+
+    let html = "";
+
+    for(const [zid, people] of zonesOrdered){
+      const zoneTitle = ZONE_SEEDS.find(z=>z.id===zid)?.name || "غير معروف";
+      const color = ZONE_COLORS[zid] || "#121a33";
+      const minD = Math.min(...people.map(x=>x.distanceKm||Infinity));
+      const badge = isFinite(minD) ? `الأقرب ~ ${minD.toFixed(2)} كم` : `فعّل الموقع للترتيب`;
+
+      const labels = clusterDBSCAN(people, 1.0, 1); // 1 كم
+      const groups = new Map();
+      people.forEach((p, idx)=>{
+        const lab = labels[idx];
+        const key = (lab === -1) ? "مجموعة منفردة" : `مجموعة ${lab+1} (≤ 1 كم)`;
+        if(!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+      });
+
+      const groupsOrdered = Array.from(groups.entries()).sort((a,b)=>{
+        const da = Math.min(...a[1].map(x=>x.distanceKm||Infinity));
+        const db = Math.min(...b[1].map(x=>x.distanceKm||Infinity));
+        return da - db;
+      });
+
+      html += `
+        <div class="group">
+          <h2 style="background:${color}">${escapeHtml(zoneTitle)} — ${escapeHtml(badge)}</h2>
+      `;
+
+      for(const [gname, gpeople] of groupsOrdered){
+        html += `<div class="small" style="margin:8px 2px 10px;color:var(--muted);font-weight:800">${escapeHtml(gname)} (${gpeople.length})</div>`;
+        html += `<div class="cards">${gpeople.map(cardHtml).join("")}</div>`;
+        html += `<div style="height:12px"></div>`;
+      }
+
+      html += `</div>`;
+    }
+
+    elApp.innerHTML = html;
+  }
+
+  async function updateLocation(){
+    setStatus("جاري تحديد موقعك...");
+    if(!navigator.geolocation){
+      state.me = null;
+      setStatus("المتصفح لا يدعم تحديد الموقع. سيتم العرض بدون مسافات دقيقة.");
+      render();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        state.me = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+        setStatus(`تم تحديث موقعك: ${state.me.lat.toFixed(5)}, ${state.me.lng.toFixed(5)}`);
+        render();
+      },
+      err=>{
+        state.me = null;
+        setStatus("لم يتم السماح بالموقع. سيتم ترتيب بدون مسافة دقيقة.");
+        render();
+      },
+      {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+    );
+  }
+
+  function setLastUpdatedNow(){
+    const d = new Date();
+    const t = d.toLocaleString("ar-JO");
+    elLastUpd.textContent = `آخر تحديث: ${t}`;
+  }
+
+  async function reloadData(){
+    try{
+      setStatus("جاري تحميل البيانات من الشيت...");
+      await loadPeopleFromSheet();
+      loadFromPeopleData();
+      buildFilters();
+      setLastUpdatedNow();
+      setStatus("تم تحميل البيانات ✅");
+      render();
+    }catch(e){
+      console.error(e);
+      setStatus("❌ تعذر تحميل البيانات. تأكد من TOKEN و Apps Script.");
+      elApp.innerHTML = `<div class="box">تعذر تحميل البيانات من Google Sheet.</div>`;
+    }
+  }
+
+  // تشغيل أولي
+  async function boot(){
+    await reloadData();
+    updateLocation();
+  }
+
+  document.getElementById("btnLoc").addEventListener("click", updateLocation);
+  document.getElementById("btnReload").addEventListener("click", reloadData);
+
+  elFZone.addEventListener("change", e=>{ state.filters.zone = e.target.value; render(); });
+  elFClass.addEventListener("change", e=>{ state.filters.family_class = e.target.value; render(); });
+  elFSpecial.addEventListener("change", e=>{ state.filters.special = e.target.value; render(); });
+  elFHousing.addEventListener("change", e=>{ state.filters.housing = e.target.value; render(); });
+
+  boot();
+
+  // تحديث تلقائي كل دقيقة
+  setInterval(reloadData, 60000);
+</script>
+
+</body>
+</html>
+
+
